@@ -22,7 +22,7 @@ public class StudentController {
   }
 
   @GetMapping("/all")
-  @PreAuthorize("hasRole('USER')")
+  @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<?> findById() {
     return ResponseEntity.ok(studentService.findAll());
   }
