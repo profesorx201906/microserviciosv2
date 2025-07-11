@@ -31,15 +31,15 @@ public class JwtUtils {
 
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
 
-        // 1. Extraer los roles del UserDetailsImpl
-        List<String> roles = userPrincipal.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority) // Obtiene el nombre del rol (ej. "ROLE_ADMIN")
+        // Obtener todos los GrantedAuthorities (roles y permisos)
+        List<String> authorities = userPrincipal.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
 
-        // 2. Construir el JWT y AÑADIR el claim "roles"
+        // El JWT ahora incluirá una lista unificada de roles y permisos
         return Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))
-                .claim("roles", roles) // <-- ¡Esta línea es CRÍTICA y debe estar!
+                .claim("authorities", authorities) // <-- ¡Esta línea es la CLAVE!
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(key(), SignatureAlgorithm.HS256)

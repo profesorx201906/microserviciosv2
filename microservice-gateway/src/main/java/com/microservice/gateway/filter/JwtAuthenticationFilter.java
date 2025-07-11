@@ -1,5 +1,7 @@
 package com.microservice.gateway.filter;
 
+import com.microservice.gateway.security.jwt.JwtUtils;
+import com.microservice.gateway.services.UserDetailsImpl;
 import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,14 +11,17 @@ import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFac
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextImpl; // ¡Añade esta importación!
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
-
-import com.microservice.gateway.security.jwt.JwtUtils;
-
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
@@ -35,12 +40,10 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
 
-            // Excluir rutas de autenticación (login, registro) del filtro JWT
             if (request.getURI().getPath().startsWith("/api/auth/")) {
                 return chain.filter(exchange);
             }
 
-            // Verificar si el encabezado de autorización está presente
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return this.onError(exchange, "No Authorization header", HttpStatus.UNAUTHORIZED);
             }
@@ -56,26 +59,42 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 return this.onError(exchange, "Invalid or missing JWT token", HttpStatus.UNAUTHORIZED);
             }
 
-            // Si el token es válido, extraer información y propagarla
             try {
-                Claims claims = jwtUtils.getAllClaimsFromToken(jwt); // Necesitarás un método para esto en JwtUtils
+                Claims claims = jwtUtils.getAllClaimsFromToken(jwt);
                 String username = claims.getSubject();
 
-                // Asegúrate de que 'roles' se declare como List<String>
-                // y que el cast sea explícito si es necesario, o usa la forma genérica de
-                // .get()
-                @SuppressWarnings("unchecked")
-                List<String> roles = (List<String>) claims.get("roles");
-                // Propagar el User ID y Roles a los microservicios downstream
-                // Propagar el User ID y Roles a los microservicios downstream
+                List<String> authoritiesList;
+                Object authoritiesClaim = claims.get("authorities"); // <-- Debuggea aquí
+                if (authoritiesClaim instanceof List<?>) {
+                    authoritiesList = ((List<?>) authoritiesClaim).stream()
+                            .map(Object::toString)
+                            .collect(Collectors.toList());
+                } else {
+                    authoritiesList = new ArrayList<>();
+                    logger.warn("JWT 'authorities' claim is not a List or is missing. User: {}", username);
+                    // Aquí deberías añadir un log o incluso lanzar una excepción para ver qué valor
+                    // tiene 'authoritiesClaim'
+                    logger.error("Value of 'authoritiesClaim': {}", authoritiesClaim);
+                }
+
+                UserDetailsImpl userDetails = UserDetailsImpl.buildFromJwtClaims(username, authoritiesList);
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
+
+                // --- CAMBIO AQUÍ ---
+                // Para WebFlux, crea un SecurityContextImpl y luego usa contextWrite
+                SecurityContext securityContext = new SecurityContextImpl(authentication);
+                // --- FIN DEL CAMBIO ---
+
                 ServerHttpRequest mutatedRequest = request.mutate()
                         .header("X-User-ID", username)
-                        // LÍNEA A CORREGIR: Convierte la lista de roles en una sola cadena separada por
-                        // comas
-                        .header("X-User-Roles", String.join(",", roles))
+                        .header("X-User-Authorities", String.join(",", authoritiesList))
                         .build();
 
-                return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                // Aquí es donde el contexto de seguridad reactivo se propaga
+                return chain.filter(exchange.mutate().request(mutatedRequest).build())
+                        .contextWrite(ReactiveSecurityContextHolder.withSecurityContext(Mono.just(securityContext)));
 
             } catch (Exception e) {
                 logger.error("Error processing JWT: {}", e.getMessage());
@@ -86,7 +105,10 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
     private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
         exchange.getResponse().setStatusCode(httpStatus);
-        return exchange.getResponse().setComplete();
+        exchange.getResponse().getHeaders().add("Content-Type", "application/json");
+        String responseBody = "{\"status\": " + httpStatus.value() + ", \"error\": \"" + err + "\"}";
+        return exchange.getResponse()
+                .writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(responseBody.getBytes())));
     }
 
     public static class Config {

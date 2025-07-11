@@ -26,7 +26,8 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/student/all").hasAnyRole("MODERATOR", "ADMIN")
                         .requestMatchers("/api/student/create").hasRole("ADMIN")
                         .requestMatchers("/api/student/search-by-course/**").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers("/api/student/search/**").hasAnyRole("ADMIN", "USER")
+                        .requestMatchers("/api/student/search/**").hasAuthority("READ_STUDENT")
+                        .requestMatchers("/api/student/search/**").hasAnyRole("MODERATOR")
                         .anyRequest().authenticated());
 
         http.addFilterBefore(new GatewayAuthFilter(), UsernamePasswordAuthenticationFilter.class);

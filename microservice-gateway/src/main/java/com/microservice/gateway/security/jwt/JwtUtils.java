@@ -31,13 +31,17 @@ public class JwtUtils {
     public String generateJwtToken(Authentication authentication) {
 
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
-        List<String> roles = userPrincipal.getAuthorities().stream()
+
+        // Obtener todos los GrantedAuthorities (roles y permisos)
+        List<String> authorities = userPrincipal.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
+
+        // El JWT ahora incluirá una lista unificada de roles y permisos
         return Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))
+                .claim("authorities", authorities) // <-- ¡Esta línea es la CLAVE!
                 .setIssuedAt(new Date())
-                .claim("roles", roles)
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();

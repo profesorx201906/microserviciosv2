@@ -2,15 +2,14 @@ package com.microservice.auth.security.services;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.microservice.auth.model.User;
-
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.HashSet; // Añadir import
+import java.util.Set; // Añadir import
 
 public class UserDetailsImpl implements UserDetails {
     private static final long serialVersionUID = 1L;
@@ -34,9 +33,16 @@ public class UserDetailsImpl implements UserDetails {
     }
 
     public static UserDetailsImpl build(User user) {
-        List<GrantedAuthority> authorities = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority(role.getName().name()))
-                .collect(Collectors.toList());
+        Set<GrantedAuthority> authorities = new HashSet<>();
+
+        // Añadir roles como GrantedAuthority
+        user.getRoles().forEach(role -> {
+            authorities.add(new SimpleGrantedAuthority(role.getName().name())); // Ej: "ROLE_ADMIN"
+            // Añadir permisos asociados a cada rol como GrantedAuthority
+            role.getPermissions().forEach(permission -> {
+                authorities.add(new SimpleGrantedAuthority(permission.getName())); // Ej: "CREATE_STUDENT"
+            });
+        });
 
         return new UserDetailsImpl(
                 user.getId(),
