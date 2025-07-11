@@ -17,7 +17,6 @@ import com.microservice.gateway.security.jwt.JwtUtils;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
@@ -65,6 +64,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 // Asegúrate de que 'roles' se declare como List<String>
                 // y que el cast sea explícito si es necesario, o usa la forma genérica de
                 // .get()
+                @SuppressWarnings("unchecked")
                 List<String> roles = (List<String>) claims.get("roles");
                 // Propagar el User ID y Roles a los microservicios downstream
                 // Propagar el User ID y Roles a los microservicios downstream
