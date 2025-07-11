@@ -21,35 +21,14 @@ public class WebSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // Deshabilita CSRF (ya que es stateless con JWT)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Asegura
-                                                                                                              // que no
-                                                                                                              // se
-                                                                                                              // creen
-                                                                                                              // sesiones
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Permite acceso a rutas públicas (si las tienes, el Gateway ya debería
-                        // manejarlas)
-                        // .requestMatchers("/api/public/**").permitAll()
-
-                        // Configura las reglas de acceso por URL y rol
-                        // Las rutas deben coincidir con las que llegan a este microservicio (después
-                        // del Gateway)
-                        .requestMatchers("/api/student/all").hasAnyRole("MODERATOR", "ADMIN") // Para
-                                                                                              // /api/student/all
-                        .requestMatchers("/api/student/search/**").hasAnyRole("USER", "MODERATOR", "ADMIN") // Para
-                                                                                                            // /api/student/search/{id}
-                                                                                                            // o
-                                                                                                            // /api/student/search-by-course/{courseId}
-                        .requestMatchers("/api/student/create").hasRole("ADMIN") // Ejemplo: Solo ADMIN puede crear
-
-                        // Todas las demás solicitudes requieren algún tipo de autenticación
-                        // Si no se especifica un rol, solo que esté autenticado (JWT válido)
+                        .requestMatchers("/api/student/all").hasAnyRole("MODERATOR", "ADMIN")
+                        .requestMatchers("/api/student/create").hasRole("ADMIN")
+                        .requestMatchers("/api/student/search-by-course/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/student/search/**").hasAnyRole("ADMIN", "USER")
                         .anyRequest().authenticated());
 
-        // Añade tu filtro personalizado antes del filtro de autenticación de Spring
-        // Security
-        // para que lea los encabezados del Gateway y establezca el contexto de
-        // seguridad.
         http.addFilterBefore(new GatewayAuthFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
