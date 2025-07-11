@@ -26,8 +26,12 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/student/all").hasAnyRole("MODERATOR", "ADMIN")
                         .requestMatchers("/api/student/create").hasRole("ADMIN")
                         .requestMatchers("/api/student/search-by-course/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/student/search/**").hasAnyRole("ADMIN")
                         .requestMatchers("/api/student/search/**").hasAuthority("READ_STUDENT")
-                        .requestMatchers("/api/student/search/**").hasAnyRole("MODERATOR")
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/student/{id}")
+                        .hasAuthority("UPDATE_STUDENT") // Regla para PUT
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/student/{id}")
+                        .hasAuthority("DELETE_STUDENT") // Regla para DELETE
                         .anyRequest().authenticated());
 
         http.addFilterBefore(new GatewayAuthFilter(), UsernamePasswordAuthenticationFilter.class);

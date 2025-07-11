@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class StudentServiceImpl implements IStudentService {
@@ -19,8 +20,9 @@ public class StudentServiceImpl implements IStudentService {
   }
 
   @Override
-  public Student findById(Long id) {
-    return studentRepository.findById(id).orElseThrow();
+  public Optional<Student> findById(Long id) {
+    // Usa directamente el método findById del repositorio que ya devuelve Optional
+    return studentRepository.findById(id);
   }
 
   @Override
@@ -31,5 +33,10 @@ public class StudentServiceImpl implements IStudentService {
   @Override
   public List<Student> findByCourseId(Long courseId) {
     return studentRepository.findAllByCourseId(courseId);
+  }
+
+  @Override
+  public void deleteById(Long id) {
+    studentRepository.deleteById(id);
   }
 }
