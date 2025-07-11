@@ -2,17 +2,19 @@ package com.microservice.student.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+// REMUEVE esta anotación si no vas a usar @PreAuthorize
+// import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy; // Importa esto
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // Importa esto
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.microservice.student.security.GatewayAuthFilter;
 
 @Configuration
-@EnableMethodSecurity // Habilita las anotaciones @PreAuthorize y @PostAuthorize
+// Si remueves @EnableMethodSecurity, @PreAuthorize dejará de funcionar
+// @EnableMethodSecurity
 public class WebSecurityConfig {
 
     @Bean
@@ -24,11 +26,25 @@ public class WebSecurityConfig {
                                                                                                               // se
                                                                                                               // creen
                                                                                                               // sesiones
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()) // Permite todas las solicitudes, el
-                                                                              // Gateway ya las autenticó. La
-                                                                              // autorización fina se hará con
-                                                                              // @PreAuthorize.
-        ;
+                .authorizeHttpRequests(auth -> auth
+                        // Permite acceso a rutas públicas (si las tienes, el Gateway ya debería
+                        // manejarlas)
+                        // .requestMatchers("/api/public/**").permitAll()
+
+                        // Configura las reglas de acceso por URL y rol
+                        // Las rutas deben coincidir con las que llegan a este microservicio (después
+                        // del Gateway)
+                        .requestMatchers("/api/student/all").hasAnyRole("MODERATOR", "ADMIN") // Para
+                                                                                              // /api/student/all
+                        .requestMatchers("/api/student/search/**").hasAnyRole("USER", "MODERATOR", "ADMIN") // Para
+                                                                                                            // /api/student/search/{id}
+                                                                                                            // o
+                                                                                                            // /api/student/search-by-course/{courseId}
+                        .requestMatchers("/api/student/create").hasRole("ADMIN") // Ejemplo: Solo ADMIN puede crear
+
+                        // Todas las demás solicitudes requieren algún tipo de autenticación
+                        // Si no se especifica un rol, solo que esté autenticado (JWT válido)
+                        .anyRequest().authenticated());
 
         // Añade tu filtro personalizado antes del filtro de autenticación de Spring
         // Security
